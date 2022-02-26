@@ -2,13 +2,13 @@
 
 ## 说明
 
-本文旨在提供简要的技术文档，以快速在 Linux 系统下使用 vaultwarden 和 traefik Docker 镜像部署搭建一个自托管的 Bitwarden 服务站点。
+本文旨在提供简要的技术文档，以在 Linux 系统下使用 Docker 镜像 vaultwarden 和 traefik 快速部署搭建一个自托管的 Bitwarden 服务端站点。
 
-其中 [vaultwarden](https://github.com/dani-garcia/vaultwarden) 原为 Bitwarden RS，是当前最流行的 Bitwarden 服务端的第三方开源实现。[traefik](https://traefik.io) 提供反向代理服务，用于通过 Let's Encrypt 生成域名 SSL 证书及支持 vaultwarden 的 WebSocket。
+其中 [vaultwarden](https://github.com/dani-garcia/vaultwarden) 原为 bitwarden_rs，是当前最流行的 Bitwarden 服务端的第三方开源实现。[traefik](https://traefik.io) 提供反向代理服务，用于通过 Let's Encrypt 生成域名 SSL 证书及支持 vaultwarden 的 WebSocket。
 
 ## 准备
 
-准备一个用于访问 Bitwarden 站点的域名并解析至要部署的服务器，开放服务器的 80、443 端口并检查是否已有其他进程使用这两个端口。
+准备一个用于访问 Bitwarden 站点的域名并解析至要部署的服务器/VPS。开放服务器的 80、443 端口并检查是否已有其他进程使用这两个端口。
 
 安装 docker 及 docker-compose（如已安装则略过）：
 
@@ -52,7 +52,7 @@ INVITATIONS_ALLOWED=false
 WEBSOCKET_ENABLED=true
 TZ=Asia/Shanghai
 
-# 以下变量用于配置 Vaultwarden 的邮件发送 (如无需邮件验证、提醒功能可删除或注释)
+# 以下变量用于配置 Vaultwarden 的 SMTP 邮件发送服务，如无需注册账户的 Email 验证和基于 Email 的两步登录验证功能则可删除或注释
 # 推荐使用 Gmail 的 SMTP 发送服务 (https://github.com/dani-garcia/vaultwarden/wiki/SMTP-configuration#googlegmail)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
@@ -77,7 +77,7 @@ services:
     container_name: traefik
     restart: unless-stopped
     volumes:
-      - ./traefik:/letsencrypt:rw
+      - ./traefik:/traefik:rw
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - docknet
@@ -94,27 +94,25 @@ services:
       - "--entrypoints.https.http.tls=true"
       - "--entrypoints.https.http.tls.certResolver=letsencrypt"
       - "--certificatesResolvers.letsencrypt.acme.email=$SSL_EMAIL"
-      - "--certificatesResolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesResolvers.letsencrypt.acme.storage=/traefik/acme.json"
       - "--certificatesResolvers.letsencrypt.acme.httpChallenge.entryPoint=http"
     logging:
       driver: "json-file"
       options:
         max-size: "$LOG_MAX_SIZE"
 
-  bitwarden:
+  vaultwarden:
     image: vaultwarden/server:latest
-    container_name: bitwarden
+    container_name: vaultwarden
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.bitwarden-ui.rule=Host(`$SITE_DOMAIN`)"
-      - "traefik.http.routers.bitwarden-ui.entrypoints=https"
-      - "traefik.http.routers.bitwarden-ui.service=bitwarden-service"
-      - "traefik.http.services.bitwarden-service.loadbalancer.server.port=80"
-      - "traefik.http.routers.bitwarden-websocket.rule=Host(`$SITE_DOMAIN`) && Path(`/notifications/hub`)"
-      - "traefik.http.routers.bitwarden-websocket.entrypoints=https"
-      - "traefik.http.routers.bitwarden-websocket.service=bitwarden-websocket"
-      - "traefik.http.services.bitwarden-websocket.loadbalancer.server.port=3012"
+      - "traefik.http.routers.vaultwarden-ui.rule=Host(`$SITE_DOMAIN`)"
+      - "traefik.http.routers.vaultwarden-ui.service=vaultwarden-service"
+      - "traefik.http.services.vaultwarden-service.loadbalancer.server.port=80"
+      - "traefik.http.routers.vaultwarden-websocket.rule=Host(`$SITE_DOMAIN`) && Path(`/notifications/hub`)"
+      - "traefik.http.routers.vaultwarden-websocket.service=vaultwarden-websocket"
+      - "traefik.http.services.vaultwarden-websocket.loadbalancer.server.port=3012"
     volumes:
       - ./vaultwarden/data:/data:rw
     env_file:
@@ -132,15 +130,17 @@ networks:
 EOL
 ```
 
-检查域名解析生效后，启动服务（临时开启注册）：
+检查域名解析生效后，启动服务：
 
 ```bash
 SIGNUPS_ALLOWED=true docker-compose up -d
 ```
 
+这里我们通过在前面添加环境变量 `SIGNUPS_ALLOWED=true` 来临时开启注册。
+
 约一分钟后在浏览器中输入绑定的域名访问 Bitwarden 站点，点击 **Create account** 按钮创建账户。
 
-账户创建完毕，在终端界面执行下面命令重新启动服务（如需开放给其他用户注册则可略过）：
+账户创建完毕，在终端界面执行下面命令重新启动服务以关闭注册（如需开放给其他用户注册则可略过）：
 
 ```bash
 docker-compose up -d
