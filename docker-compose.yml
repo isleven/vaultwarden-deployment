@@ -1,0 +1,57 @@
+version: "3.8"
+services:
+  traefik:
+    image: traefik:v2.6
+    container_name: traefik
+    restart: unless-stopped
+    volumes:
+      - ./traefik:/traefik:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docknet
+    ports:
+      - 80:80
+      - 443:443
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--entrypoints.http.address=:80"
+      - "--entrypoints.http.http.redirections.entrypoint.to=https"
+      - "--entrypoints.http.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.https.address=:443"
+      - "--entrypoints.https.http.tls=true"
+      - "--entrypoints.https.http.tls.certResolver=letsencrypt"
+      - "--certificatesResolvers.letsencrypt.acme.email=$SSL_EMAIL"
+      - "--certificatesResolvers.letsencrypt.acme.storage=/traefik/acme.json"
+      - "--certificatesResolvers.letsencrypt.acme.httpChallenge.entryPoint=http"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "$LOG_MAX_SIZE"
+
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vaultwarden-ui.rule=Host(`$SITE_DOMAIN`)"
+      - "traefik.http.routers.vaultwarden-ui.service=vaultwarden-service"
+      - "traefik.http.services.vaultwarden-service.loadbalancer.server.port=80"
+      - "traefik.http.routers.vaultwarden-websocket.rule=Host(`$SITE_DOMAIN`) && Path(`/notifications/hub`)"
+      - "traefik.http.routers.vaultwarden-websocket.service=vaultwarden-websocket"
+      - "traefik.http.services.vaultwarden-websocket.loadbalancer.server.port=3012"
+    volumes:
+      - ./vaultwarden/data:/data:rw
+    env_file:
+      - .env
+    networks:
+      - docknet
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "$LOG_MAX_SIZE"
+
+networks:
+  docknet:
+    name: docknet
