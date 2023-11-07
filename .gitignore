@@ -1,5 +1,11 @@
 .DS_Store
 .vscode
+*.bak
 *.env
 *.log
+*.old
+backup
 docker-compose.*.yml
+data
+log
+traefik

@@ -42,7 +42,7 @@ services:
       - "traefik.http.routers.vaultwarden-websocket.service=vaultwarden-websocket"
       - "traefik.http.services.vaultwarden-websocket.loadbalancer.server.port=3012"
     volumes:
-      - ./vaultwarden/data:/data:rw
+      - ./data:/data:rw
     env_file:
       - .env
     networks:

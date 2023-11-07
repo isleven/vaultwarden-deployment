@@ -4,7 +4,7 @@
 
 本文旨在提供简要的技术文档，以在 Linux 系统下使用 Docker 镜像 vaultwarden 和 traefik 快速部署搭建一个自托管的 Bitwarden 服务端站点 Vaultwarden。
 
-其中 [vaultwarden](https://github.com/dani-garcia/vaultwarden) 原为 bitwarden_rs，是当前最流行的 Bitwarden 服务端的第三方开源实现。[traefik](https://traefik.io) 提供反向代理服务，用于通过 Let's Encrypt 生成域名 SSL 证书及支持 vaultwarden 的 WebSocket。
+其中 [vaultwarden](https://github.com/dani-garcia/vaultwarden) 是当前最流行的 Bitwarden 服务端的第三方开源实现。[traefik](https://traefik.io) 提供反向代理服务，用于通过 Let's Encrypt 生成域名 SSL 证书及支持 vaultwarden 的 WebSocket。
 
 ## 准备
 
@@ -33,12 +33,10 @@ systemctl start docker && systemctl enable docker
 
 ## 部署
 
-创建部署目录并 Clone 本资源库至该目录，本文以部署在 /opt/vaultwarden 目录为例：
+本文以部署在 /opt/vaultwarden 目录为例，获取本项目文件至该目录：
 
 ```sh
-mkdir /opt/vaultwarden
-cd /opt/vaultwarden
-git clone https://github.com/isleven/vaultwarden-deployment.git
+git clone https://github.com/isleven/vaultwarden-deployment.git /opt/vaultwarden
 ```
 
 创建环境变量文件 .env 并**修改其中 `<...>` 部分的变量值**）:
@@ -56,7 +54,9 @@ SIGNUPS_ALLOWED=true docker-compose up -d
 
 > 这里我们通过在启动命令前面添加环境变量 `SIGNUPS_ALLOWED=true` 来临时开启 Vaultwarden 的账户注册。
 
-约一分钟后在浏览器中输入绑定的域名访问 Vaultwarden 站点，打开后点击页面中的 **Create account** 按钮创建账户。
+约两三分钟后在浏览器中输入绑定的域名访问已部署的站点。
+
+点击页面中的 **Create account** 按钮创建账户。
 
 账户创建完毕，在终端界面执行下面命令重新启动服务以关闭注册（如需开放给其他用户注册则可略过）：
 
@@ -77,3 +77,5 @@ docker-compose up -d
 - 环境变量文件中可以自行添加其他 Vaultwarden 的配置项，也可以在管理后台中设置大部分的配置项：[https://github.com/dani-garcia/vaultwarden/wiki/Configuration-overview](https://github.com/dani-garcia/vaultwarden/wiki/Configuration-overview)。
 
 - 修改环境变量文件 .env 或 docker-compose.yml 文件后需再次执行 `docker-compose up -d` 重启服务以使其生效。
+
+- 如部署后需更换站点域名，除将新域名解析至服务器外，还需修改环境变量文件 .env 中变量 `SITE_DOMAIN` 的值，并删除 traefik 目录，最后再重启容器服务。
